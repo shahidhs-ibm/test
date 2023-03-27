@@ -12,6 +12,8 @@ _**General Notes:**_
 * _A directory `/<source_root>/` will be referred to in these instructions, this is a temporary writable directory anywhere you'd like to place it._
 
 ## Step 1: Build environment set up
+Ensure that [Docker-CE](https://docs.docker.com/engine/install/) is installed.
+
 Ensure the current user belongs to group `docker`.
 
 Use the below command to add group `docker` if it does not exist:
@@ -43,7 +45,7 @@ export SOURCE_ROOT=/<source_root>/
 source $SOURCE_ROOT/setenv.sh    #Source environment file
 ```
 
-## Step 3: Install the system dependencies and Docker
+## Step 3: Install the system dependencies
 
 * RHEL (7.8, 7.9, 8.4, 8.6, 8.7, 9.0, 9.1)
 
@@ -90,7 +92,7 @@ cd jq/
 git checkout jq-1.5
 autoreconf -fi
 ./configure --disable-valgrind
-sudo make -j$(nproc)
+sudo make LDFLAGS=-all-static -j$(nproc)
 sudo make install
 ```
 
@@ -105,7 +107,7 @@ sudo make install
   make -C prow build-images
   ```
 
-### 5.2) Run Prow unit tests
+### 5.2) Run Prow unit tests (Optional)
   ```bash
   cd $SOURCE_ROOT/test-infra/
   mkdir _bin/jq-1.5
@@ -113,38 +115,12 @@ sudo make install
   cp /usr/local/bin/jq _bin/jq-1.5/jq-linux64
   make test
   ```
+  _Note_: If Python tests fails with error `version 'GLIBC_2.XX' not found`, its due to GLIBC version mismatch between the libc.so.6 library on host and libc.so.6 library present in Python container (Image: python:3.9-slim-bullseye). 
+  
 
-## Step 6: Prow deploy on Kind node (Optional)
+## Step 6: Run ProwJobs locally as pods in a Kind cluster (Optional)
 
-### 6.1) Build and install Kubectl and Kind
-
-```bash
-cd $SOURCE_ROOT
-mkdir -p go/src/k8s.io
-cd go/src/k8s.io
-git clone https://github.com/kubernetes/kubernetes.git
-cd kubernetes/
-git checkout v1.24.10
-sudo ln -s /usr/bin/gcc /usr/bin/s390x-linux-gnu-gcc
-make -j$(nproc) all
-sudo -E env PATH=$PATH GOPATH=$GOPATH KUBE_RELEASE_RUN_TESTS=N KUBE_GIT_VERSION=$(git --version | awk '{print $3}')  KUBE_BUILD_PLATFORMS=linux/s390x build/release.sh
-export PATH=$SOURCE_ROOT/go/src/k8s.io/kubernetes/_output/local/go/bin:$PATH
-kubectl version --short
-cd ..
-git clone https://github.com/kubernetes-sigs/kind.git
-cd kind/
-git checkout v0.17.0
-sed -i 's/@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1//g' pkg/apis/config/defaults/image.go
-make build
-export PATH=$SOURCE_ROOT/go/src/k8s.io/kind/bin:$PATH
-sudo -E env PATH=$PATH GOPATH=$GOPATH KUBE_RELEASE_RUN_TESTS=N KUBE_GIT_VERSION=$(git --version | awk '{print $3}') KUBE_BUILD_PLATFORMS=linux/s390x kind build node-image
-docker tag kindest/node:latest kindest/node:v1.25.3
-```
-
-### 6.2) Build and install Kubectl and Kind
-
-```bash
-```
+Please refer to [Running a prowjob locally](https://docs.prow.k8s.io/docs/build-test-update/#running-a-prowjob-locally) for more information.
 
 ## Step 7: Prow Integration
 
